@@ -1,0 +1,54 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate sound files
+        run: python scripts/generate_sounds.py
+
+      - name: Build exe with PyInstaller
+        run: pyinstaller --noconfirm FlowDictation.spec
+
+      - name: Verify build output
+        run: |
+          if (!(Test-Path "dist\FlowDictation.exe")) {
+            Write-Error "Build failed - FlowDictation.exe not found"
+            exit 1
+          }
+          $size = (Get-Item "dist\FlowDictation.exe").Length / 1MB
+          Write-Host "FlowDictation.exe size: $([math]::Round($size, 2)) MB"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/FlowDictation.exe
+          generate_release_notes: true
+          body: |
+            ## FlowDictation ${{ github.ref_name }}
+
+            ### Quick Start
+            1. Download **FlowDictation.exe** below
+            2. Run it — a green microphone icon appears in your system tray
+            3. Right-click tray icon → **Settings** → enter your [Groq API key](https://console.groq.com)
+            4. Hold **Right Alt**, speak, release — text is transcribed and pasted at your cursor
+
+            > No Python or installation required. Just download and run.
